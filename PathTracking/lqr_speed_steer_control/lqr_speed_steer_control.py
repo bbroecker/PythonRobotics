@@ -18,10 +18,13 @@ from PathPlanning.CubicSpline import cubic_spline_planner
 # === Parameters =====
 
 # LQR parameter
-lqr_Q = np.eye(5)
-lqr_R = np.eye(2)
+# lqr_Q = np.eye(5)
+lqr_Q = np.array([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 0, 0, 1]])
+# lqr_R = np.eye(2)
+lqr_R = np.array([[1, 0], [0, 1]])
 dt = 0.1  # time tick[s]
 L = 0.5  # Wheel base of the vehicle [m]
+# L = 1.5  # Wheel base of the vehicle [m]
 max_steer = np.deg2rad(45.0)  # maximum steering angle[rad]
 
 show_animation = True
@@ -178,12 +181,27 @@ def calc_nearest_index(state, cx, cy, cyaw):
     return ind, mind
 
 
-def do_simulation(cx, cy, cyaw, ck, speed_profile, goal):
+def plot_arrow(x, y, yaw, length=1.0, width=0.5, fc="r", ec="k"):  # pragma: no cover
+    """Plot arrow."""
+    len = length/2.
+    if not isinstance(x, float):
+        for (ix, iy, iyaw) in zip(x, y, yaw):
+            plot_arrow(ix, iy, iyaw)
+    else:
+        plt.arrow(x, y, len * np.cos(yaw), len * np.sin(yaw),
+                  fc=fc, ec=ec, head_width=width, head_length=width)
+        plt.plot([x, x + len * np.cos(yaw + np.pi)], [y,  y + len * np.sin(yaw + np.pi)], 'k', linestyle="-")
+        # plt.arrow(x, y, , len * np.sin(yaw + np.pi),
+        #           fc=fc, ec=ec, head_width=width, head_length=width)
+        # plt.plot(x, y)
+
+
+def do_simulation(start_x, start_y, start_yaw, cx, cy, cyaw, ck, speed_profile, goal):
     T = 500.0  # max simulation time
     goal_dis = 0.3
     stop_speed = 0.05
 
-    state = State(x=-0.0, y=-0.0, yaw=0.0, v=0.0)
+    state = State(x=start_x, y=start_y, yaw=start_yaw, v=0.0)
 
     time = 0.0
     x = [state.x]
@@ -224,7 +242,8 @@ def do_simulation(cx, cy, cyaw, ck, speed_profile, goal):
             plt.gcf().canvas.mpl_connect('key_release_event',
                     lambda event: [exit(0) if event.key == 'escape' else None])
             plt.plot(cx, cy, "-r", label="course")
-            plt.plot(x, y, "ob", label="trajectory")
+            # plt.plot(x, y, "ob", label="trajectory")
+            plot_arrow(state.x, state.y, state.yaw, length=L)
             plt.plot(cx[target_ind], cy[target_ind], "xg", label="target")
             plt.axis("equal")
             plt.grid(True)
@@ -269,6 +288,9 @@ def main():
     print("LQR steering control tracking start!!")
     ax = [0.0, 6.0, 12.5, 10.0, 17.5, 20.0, 25.0]
     ay = [0.0, -3.0, -5.0, 6.5, 3.0, 0.0, 0.0]
+    # ax = [0.0, 20.]
+    # ay = [0.0, 0.0]
+
     goal = [ax[-1], ay[-1]]
 
     cx, cy, cyaw, ck, s = cubic_spline_planner.calc_spline_course(
@@ -276,8 +298,8 @@ def main():
     target_speed = 10.0 / 3.6  # simulation parameter km/h -> m/s
 
     sp = calc_speed_profile(cyaw, target_speed)
-
-    t, x, y, yaw, v = do_simulation(cx, cy, cyaw, ck, sp, goal)
+    t, x, y, yaw, v = do_simulation(start_x=3, start_y=0, start_yaw = np.deg2rad(45), 
+                                    cx=cx, cy=cy, cyaw=cyaw, ck=ck, speed_profile=sp, goal=goal)
 
     if show_animation:  # pragma: no cover
         plt.close()
